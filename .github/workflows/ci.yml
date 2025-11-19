@@ -1,0 +1,47 @@
+# .github/workflows/ci.yml
+
+name: CI/CD - Testing y Despliegue Condicional (Deploy Hook)
+
+# El flujo se activa en los siguientes eventos:
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # ----------------------------------------------------
+  # JOB 1: TEST - Ejecuta y valida las pruebas unitarias
+  # ----------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Código
+      uses: actions/checkout@v4
+    - name: Usar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    - name: Instalar Dependencias
+      run: npm install
+    - name: Ejecutar Pruebas Unitarias
+      # Si 'npm test' falla (código de salida != 0), el job falla y 'deploy' no se ejecuta.
+      run: npm test
+
+  # -----------------------------------------------------------------------------------------
+  # JOB 2: DEPLOY - Despliega a Vercel SOLO si el Job 'test' es exitoso (Usando Deploy Hook)
+  # -----------------------------------------------------------------------------------------
+  deploy:
+    # La clave para el despliegue condicional: depende de que 'test' sea exitoso.
+    needs: test 
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Disparar Despliegue a Vercel
+      # El comando 'curl' dispara la URL del Deploy Hook, iniciando el build en Vercel.
+      # Esta es la forma correcta de usar el secreto VERCEL_DEPLOY_HOOK (que es una URL).
+      run: curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK }}
+      env:
+        # Se establece la variable de entorno para el comando curl
+        VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}

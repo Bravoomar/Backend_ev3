@@ -1,0 +1,24 @@
+name: Run Tests and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar pruebas
+        run: npm test
+
+      - name: Desplegar en Vercel si las pruebas pasan
+        if: success()
+        run: curl -X POST ${{ secrets.VERCEL_DEPLOY_HOOK }}
