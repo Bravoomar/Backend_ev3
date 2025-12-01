@@ -1,31 +1,48 @@
-import "dotenv/config"; // esto carga las variables de entorno desde el archivo .env
-import cors from "cors"; // esto habilita CORS para permitir peticiones desde el front
-import express from "express"; // esto importa express para crear el servidor HTTP
-import swaggerUi from "swagger-ui-express"; // esto sirve y renderiza la UI de swagger
-import usersRouter from "./src/routes/users.js"; // esto trae las rutas de usuarios
-import productsRouter from "./src/routes/products.js"; // esto trae las rutas de productos
-import iniciarSesionRouter from "./src/routes/iniciarsesion.js"; // esto trae las rutas de inicio de sesión
-import registroRouter from "./src/routes/registro.js"; // esto trae las rutas de registro
-import gestionUsuarioRouter from "./src/routes/gestionusuario.js"; // esto trae las rutas de gestión de usuarios
-import gestionProductosRouter from "./src/routes/gestionproductos.js"; // esto trae las rutas de gestión de productos
-import { readFileSync } from "fs"; // esto me permite leer archivos del sistema
+import "dotenv/config"; // Carga variables de entorno desde .env
+import express from "express";
+import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import { readFileSync } from "fs";
+import { connectDB } from "./src/config/db.js"; // Conexión a SQLite
 
-const app = express(); // esto crea la app de express
+// Rutas
+import usersRouter from "./src/routes/users.js";
+import productsRouter from "./src/routes/products.js";
+import registroRouter from "./src/routes/registro.js";
+import iniciarSesionRouter from "./src/routes/iniciarsesion.js";
+import gestionUsuarioRouter from "./src/routes/gestionusuario.js";
+import gestionProductosRouter from "./src/routes/gestionproductos.js";
 
-app.use(express.json()); // esto hace que el servidor entienda JSON en los request
-app.use(cors({ origin: "http://localhost:5173" })); // esto permite requests desde mi front en 5173
+const app = express();
 
-app.use("/users", usersRouter); // esto monta todas las rutas de usuarios en /users
-app.use("/products", productsRouter); // esto monta todas las rutas de productos en /products
-app.use("/iniciarsesion", iniciarSesionRouter); // esto monta todas las rutas de inicio de sesión en /iniciarsesion
-app.use("/registro", registroRouter); // esto monta todas las rutas de registro en /registro
-app.use("/gestionusuario", gestionUsuarioRouter); // esto monta todas las rutas de gestión de usuarios en /gestionusuario
-app.use("/gestionproductos", gestionProductosRouter); // esto monta todas las rutas de gestión de productos en /gestionproductos
+// Middleware
+app.use(express.json()); // Para interpretar JSON en requests
+app.use(cors({ origin: "http://localhost:5173" })); // Permite requests desde frontend
 
-const swaggerFile = JSON.parse(readFileSync("./swagger-output.json")); // esto carga el JSON de swagger generado
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile)); // esto expone la doc en /api-docs
+// Montaje de rutas
+app.use("/users", usersRouter); // GET /users, etc.
+app.use("/products", productsRouter); // GET /products (catálogo)
+app.use("/registro", registroRouter); // POST /registro
+app.use("/iniciarsesion", iniciarSesionRouter); // POST /iniciarsesion
+app.use("/gestionusuario", gestionUsuarioRouter); // CRUD usuarios (Admin)
+app.use("/gestionproductos", gestionProductosRouter); // CRUD productos (Admin)
 
-const PORT = 3000; // esto define el puerto del servidor
-app.listen(PORT, () => console.log(`🚀 http://localhost:${PORT}/api-docs`)); // esto inicia el server
+// Swagger UI
+try {
+  const swaggerFile = JSON.parse(readFileSync("./swagger-output.json"));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
+} catch (error) {
+  console.warn("⚠️ No se encontró swagger-output.json, la documentación no se cargará.");
+}
 
+// Conexión a base de datos y arranque del servidor
+const PORT = process.env.PORT || 3000;
 
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`📚 Documentación Swagger en http://localhost:${PORT}/api-docs`);
+  });
+}).catch(err => {
+  console.error("❌ Error iniciando la DB o servidor:", err);
+});
