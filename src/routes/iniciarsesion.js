@@ -1,71 +1,60 @@
-import express from "express"; // esto importa express para crear un router de rutas
-import jwt from "jsonwebtoken"; // esto importa jsonwebtoken para generar tokens JWT
+import express from "express";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt"; // ¡Importante! Para hashing de contraseñas
+import { userService } from '../services/userService.js'; // Importa el servicio de DB
 
-const router = express.Router(); // esto crea el router de inicio de sesión
-
-// esto obtiene la clave secreta desde variables de entorno o usa una por defecto
+const router = express.Router(); 
 const JWT_SECRET = process.env.JWT_SECRET || "mi_clave_secreta_super_segura_2024";
 
-// esto almacena los usuarios en memoria (en producción usarías una base de datos)
-// NOTA: Esto debería compartir la misma base de datos que registro.js y gestionusuario.js
-const usuariosData = [
-  { run: "11-1", nombre: "Juan", apellidos: "Pérez", correo: "juan.perez@duoc.cl", tipo: "Administrador", direccion: "Av. Siempre Viva 123", password: "admin123" },
-  { run: "22-2", nombre: "Ana", apellidos: "García", correo: "ana.garcia@duoc.cl", tipo: "Vendedor", direccion: "Calle Falsa 456", password: "vendedor123" }
-];
+router.post("/", async (req, res) => { // La función debe ser ASÍNCRONA
+    const { email, password } = req.body; 
 
-// esto define el endpoint POST /iniciarsesion para autenticar usuarios y generar JWT
-router.post("/", (req, res) => {
-  const { email, password } = req.body; // esto extrae email y password del body
+    if (!email || !password) {
+        return res.status(400).json({ error: "Email y contraseña son requeridos" });
+    }
 
-  if (!email || !password) {
-    // esto valida que se envíen ambos campos
-    return res.status(400).json({ error: "Email y contraseña son requeridos" });
-  }
+    try {
+        // 1. 🔍 Buscar usuario en la BASE DE DATOS usando el servicio (IE3.1.1)
+        const usuario = await userService.getUserByEmail(email.trim()); // Debes crear este método en userService.js
 
-  const correo = email.trim(); // esto limpia espacios del email
+        if (!usuario) {
+            return res.status(401).json({ error: "Credenciales inválidas" });
+        }
 
-  // esto busca el usuario en la base de datos
-  const usuario = usuariosData.find(u => u.correo === correo);
+        // 2. 🔑 Verificar contraseña con HASHING (IE3.3.1)
+        // Comparar la contraseña ingresada con el hash almacenado en la columna 'passwordHash'
+        const isPasswordValid = await bcrypt.compare(password, usuario.passwordHash); 
 
-  // esto valida si el usuario existe y la contraseña es correcta
-  if (!usuario || usuario.password !== password) {
-    return res.status(401).json({ error: "Credenciales inválidas" });
-  }
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: "Credenciales inválidas" });
+        }
 
-  // esto determina el tipo de usuario basado en el correo o el tipo almacenado
-  let tipoUsuario = usuario.tipo.toLowerCase();
-  if (correo.endsWith("@duocuc.cl")) {
-    tipoUsuario = "administrador";
-  }
+        // 3. 🚀 Generar el Token JWT (IE3.3.1)
+        const payload = {
+            run: usuario.run,
+            correo: usuario.correo,
+            nombre: usuario.nombre,
+            tipo: usuario.tipo.toLowerCase() // Usamos el rol de la DB
+        };
 
-  // esto crea el payload del JWT con la información del usuario
-  const payload = {
-    run: usuario.run,
-    correo: usuario.correo,
-    nombre: usuario.nombre,
-    tipo: tipoUsuario
-  };
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
 
-  // esto genera el token JWT con expiración de 24 horas
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+        // 4. ✅ Respuesta exitosa
+        res.json({ 
+            success: true, 
+            token: token, 
+            tipo: usuario.tipo.toLowerCase(),
+            usuario: {
+                run: usuario.run, nombre: usuario.nombre, apellidos: usuario.apellidos, 
+                correo: usuario.correo, tipo: usuario.tipo.toLowerCase()
+            },
+            message: `Inicio de sesión exitoso como ${usuario.tipo.toLowerCase()}` 
+        });
 
-  // esto retorna el token y la información del usuario
-  res.json({ 
-    success: true, 
-    token: token, // esto retorna el JWT para que el frontend lo guarde
-    tipo: tipoUsuario,
-    usuario: {
-      run: usuario.run,
-      nombre: usuario.nombre,
-      apellidos: usuario.apellidos,
-      correo: usuario.correo,
-      tipo: tipoUsuario
-    },
-    message: tipoUsuario === "administrador" 
-      ? "Inicio de sesión exitoso como administrador" 
-      : "Inicio de sesión exitoso" 
-  });
+    } catch (e) {
+        console.error("Error en el inicio de sesión:", e);
+        res.status(500).json({ error: "Error interno del servidor." });
+    }
 });
 
-export default router; // esto exporta el router para usarlo en index.js
-
+export default router;
