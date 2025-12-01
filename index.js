@@ -1,3 +1,4 @@
+import "dotenv/config"; // esto carga las variables de entorno desde el archivo .env
 import cors from "cors"; // esto habilita CORS para permitir peticiones desde el front
 import express from "express"; // esto importa express para crear el servidor HTTP
 import swaggerUi from "swagger-ui-express"; // esto sirve y renderiza la UI de swagger

@@ -1,6 +1,13 @@
 import express from "express"; // esto importa express para crear un router de rutas
+import { verificarToken, verificarAdmin } from "../middleware/auth.js"; // esto importa los middlewares de autenticación
 
 const router = express.Router(); // esto crea el router de gestión de productos
+
+// esto aplica los middlewares de autenticación a todas las rutas de gestión de productos
+// primero verifica el token JWT y luego verifica que sea administrador
+// solo los administradores pueden acceder a estas rutas
+router.use(verificarToken);
+router.use(verificarAdmin);
 
 // esto almacena los productos en memoria (en producción usarías una base de datos)
 const productosData = [

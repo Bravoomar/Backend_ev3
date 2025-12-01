@@ -1,6 +1,10 @@
 import express from "express"; // esto importa express para crear un router de rutas
+import jwt from "jsonwebtoken"; // esto importa jsonwebtoken para generar tokens JWT
 
 const router = express.Router(); // esto crea el router de registro
+
+// esto obtiene la clave secreta desde variables de entorno o usa una por defecto
+const JWT_SECRET = process.env.JWT_SECRET || "mi_clave_secreta_super_segura_2024";
 
 // esto almacena los usuarios en memoria (en producción usarías una base de datos)
 // NOTA: En producción, esto debería compartir la misma base de datos que gestionusuario.js
@@ -54,12 +58,24 @@ router.post("/", (req, res) => {
   
   usuariosData.push(nuevoUsuario); // esto agrega el usuario a la lista
 
-  // esto retorna el usuario sin la contraseña por seguridad
+  // esto crea el payload del JWT con la información del usuario
+  const payload = {
+    run: nuevoUsuario.run,
+    correo: nuevoUsuario.correo,
+    nombre: nuevoUsuario.nombre,
+    tipo: "cliente" // esto asigna tipo cliente por defecto
+  };
+
+  // esto genera el token JWT con expiración de 24 horas
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+
+  // esto retorna el usuario sin la contraseña por seguridad y el token JWT
   const usuarioSinPassword = { ...nuevoUsuario };
   delete usuarioSinPassword.password;
 
   res.status(201).json({ 
     message: "Usuario registrado exitosamente", 
+    token: token, // esto retorna el JWT para que el frontend lo guarde automáticamente
     usuario: usuarioSinPassword 
   });
 });
